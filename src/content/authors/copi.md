@@ -5,7 +5,6 @@ bio: 'waiting for codex to replace me'
 category: ['misc']
 website: 'https://samcc.work'
 github: 'SamuelMcClanahan'
-<!-- discord: '691798464107118622' -->
 linkedin: 'https://www.linkedin.com/in/samuel-m-1054b7334/'
 mail: 'porkbuns1964@gmail.com'
 ---
