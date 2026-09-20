@@ -41,20 +41,20 @@ export default defineConfig({
         borderColor: 'var(--border)',
         codeFontFamily: 'var(--font-mono)',
         codeBackground:
-          'color-mix(in oklab, var(--secondary) 25%, transparent)',
+          'color-mix(in oklab, var(--secondary) 25%, var(--background))',
         frames: {
           editorActiveTabForeground: 'var(--muted-foreground)',
           editorActiveTabBackground:
-            'color-mix(in oklab, var(--secondary) 25%, transparent)',
+            'color-mix(in oklab, var(--secondary) 25%, var(--background))',
           editorActiveTabIndicatorBottomColor: 'transparent',
           editorActiveTabIndicatorTopColor: 'transparent',
           editorTabBorderRadius: '0',
-          editorTabBarBackground: 'transparent',
+          editorTabBarBackground: 'var(--background)',
           editorTabBarBorderBottomColor: 'transparent',
           frameBoxShadowCssValue: 'none',
           terminalBackground:
-            'color-mix(in oklab, var(--secondary) 25%, transparent)',
-          terminalTitlebarBackground: 'transparent',
+            'color-mix(in oklab, var(--secondary) 25%, var(--background))',
+          terminalTitlebarBackground: 'var(--background)',
           terminalTitlebarBorderBottomColor: 'transparent',
           terminalTitlebarForeground: 'var(--muted-foreground)',
         },

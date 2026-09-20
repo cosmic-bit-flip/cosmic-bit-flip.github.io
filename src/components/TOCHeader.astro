@@ -94,6 +94,10 @@ const { headings } = Astro.props
 }
 
 <script>
+  import { scrollPosition } from '@/lib/scroll-position'
+  import { measureHeadingRegions, visibleHeadingIds, type HeadingRegion } from '@/lib/heading-regions'
+
+  const desktop = window.matchMedia('(min-width: 1280px)')
   const INITIAL_OVERVIEW_TEXT = 'Overview'
   const HEADER_OFFSET = 102 + 36
   const PROGRESS_CIRCLE_RADIUS = 10
@@ -106,7 +110,9 @@ const { headings } = Astro.props
     listElement: HTMLElement | null = null
     scrollArea: HTMLElement | null = null
     headings: HTMLElement[] = []
-    regions: { id: string; start: number; end: number }[] = []
+    regions: HeadingRegion[] = []
+    viewportHeight = scrollPosition.height
+    documentHeight = 0
     activeIds: string[] = []
 
     reset() {
@@ -146,56 +152,14 @@ const { headings } = Astro.props
         ),
       )
 
-      if (state.headings.length === 0) {
-        state.regions = []
-        return
-      }
-
-      state.regions = state.headings.map((heading, index) => {
-        const nextHeading = state.headings[index + 1]
-        return {
-          id: heading.id,
-          start: heading.offsetTop,
-          end: nextHeading ? nextHeading.offsetTop : document.body.scrollHeight,
-        }
-      })
+      state.regions = measureHeadingRegions(state.headings)
+      state.viewportHeight = scrollPosition.height
+      state.documentHeight = document.documentElement.scrollHeight
     }
 
     static getVisibleIds(): string[] {
-      if (state.headings.length === 0) return []
-
-      const viewportTop = window.scrollY + HEADER_OFFSET
-      const viewportBottom = window.scrollY + window.innerHeight
-      const visibleIds = new Set<string>()
-
-      const isInViewport = (top: number, bottom: number) =>
-        (top >= viewportTop && top <= viewportBottom) ||
-        (bottom >= viewportTop && bottom <= viewportBottom) ||
-        (top <= viewportTop && bottom >= viewportBottom)
-
-      state.headings.forEach((heading) => {
-        const headingBottom = heading.offsetTop + heading.offsetHeight
-        if (isInViewport(heading.offsetTop, headingBottom)) {
-          visibleIds.add(heading.id)
-        }
-      })
-
-      state.regions.forEach((region) => {
-        if (region.start <= viewportBottom && region.end >= viewportTop) {
-          const heading = document.getElementById(region.id)
-          if (heading) {
-            const headingBottom = heading.offsetTop + heading.offsetHeight
-            if (
-              region.end > headingBottom &&
-              (headingBottom < viewportBottom || viewportTop < region.end)
-            ) {
-              visibleIds.add(region.id)
-            }
-          }
-        }
-      })
-
-      return Array.from(visibleIds)
+      const scroll = scrollPosition.y
+      return visibleHeadingIds(state.regions, scroll + HEADER_OFFSET, scroll + state.viewportHeight)
     }
   }
 
@@ -214,8 +178,11 @@ const { headings } = Astro.props
   }
 
   class MobileTOCLinks {
+    static interactions: AbortController | undefined
     static update(headingIds: string[]) {
       if (!state.listElement || !state.currentSectionText) return
+
+      if (headingIds.length > 0) this.scrollToActive(headingIds[0])
 
       state.listElement.querySelectorAll('.mobile-toc-item').forEach((item) => {
         const tocItem = item as HTMLElement
@@ -226,10 +193,6 @@ const { headings } = Astro.props
           tocItem.classList.remove('text-foreground')
         }
       })
-
-      if (headingIds.length > 0) {
-        this.scrollToActive(headingIds[0])
-      }
 
       this.updateCurrentSectionText(headingIds)
     }
@@ -251,11 +214,13 @@ const { headings } = Astro.props
         }
       }
 
-      state.currentSectionText.textContent = textToShow
+      if (state.currentSectionText.textContent !== textToShow) {
+        state.currentSectionText.textContent = textToShow
+      }
     }
 
     static scrollToActive(activeHeadingId: string) {
-      if (!state.listElement) return
+      if (desktop.matches || !state.detailsElement?.open || !state.listElement) return
 
       const activeItem = state.listElement.querySelector(
         `[data-heading-id="${activeHeadingId}"]`,
@@ -286,40 +251,44 @@ const { headings } = Astro.props
 
     static setupInteraction() {
       if (!state.listElement) return
+      this.interactions?.abort()
+      this.interactions = new AbortController()
+      const options = { passive: true, signal: this.interactions.signal }
 
       state.listElement.querySelectorAll('.mobile-toc-item').forEach((item) => {
         item.addEventListener('click', () => {
           if (state.detailsElement) state.detailsElement.open = false
-        })
+        }, options)
       })
 
       if (state.scrollArea) {
         state.scrollArea.addEventListener(
           'scroll',
           () => TOCHeaderScrollMask.update(),
-          { passive: true },
+          options,
         )
       }
 
       if (state.detailsElement) {
         state.detailsElement.addEventListener('toggle', () => {
           if (state.detailsElement?.open) {
+            MobileTOCLinks.scrollToActive(state.activeIds[0])
             setTimeout(TOCHeaderScrollMask.update, 100)
           }
-        })
+        }, options)
       }
     }
   }
 
   class ProgressCircle {
     static update() {
-      if (!state.progressCircle) return
+      if (desktop.matches || !state.progressCircle) return
 
       const scrollableDistance =
-        document.documentElement.scrollHeight - window.innerHeight
+        state.documentHeight - state.viewportHeight
       const scrollProgress =
         scrollableDistance > 0
-          ? Math.min(Math.max(window.scrollY / scrollableDistance, 0), 1)
+          ? Math.min(Math.max(scrollPosition.y / scrollableDistance, 0), 1)
           : 0
 
       state.progressCircle.style.strokeDashoffset = (
@@ -330,7 +299,21 @@ const { headings } = Astro.props
   }
 
   class MobileTOCController {
+    static frame = 0
+    static observer: ResizeObserver | undefined
+
+    static requestScroll() {
+      if (desktop.matches) return
+      if (!MobileTOCController.frame) {
+        MobileTOCController.frame = requestAnimationFrame(() => {
+          MobileTOCController.frame = 0
+          MobileTOCController.handleScroll()
+        })
+      }
+    }
+
     static handleScroll() {
+      if (desktop.matches) return
       const newActiveIds = HeadingRegions.getVisibleIds()
 
       if (JSON.stringify(newActiveIds) !== JSON.stringify(state.activeIds)) {
@@ -354,10 +337,15 @@ const { headings } = Astro.props
     }
 
     static init() {
+      this.cleanup()
       state.reset()
       HeadingRegions.build()
 
       if (!state.currentSectionText) return
+      this.observer = new ResizeObserver(() => MobileTOCController.handleResize())
+      this.observer.observe(document.body)
+      const article = document.querySelector('.prose')
+      if (article) this.observer.observe(article)
 
       if (state.headings.length === 0) {
         state.currentSectionText.textContent = INITIAL_OVERVIEW_TEXT
@@ -373,12 +361,16 @@ const { headings } = Astro.props
       ProgressCircle.update()
 
       MobileTOCLinks.setupInteraction()
-      window.addEventListener('scroll', this.handleScroll, { passive: true })
+      window.addEventListener('scroll', this.requestScroll, { passive: true })
       window.addEventListener('resize', this.handleResize, { passive: true })
     }
 
     static cleanup() {
-      window.removeEventListener('scroll', this.handleScroll)
+      cancelAnimationFrame(this.frame)
+      this.frame = 0
+      this.observer?.disconnect()
+      MobileTOCLinks.interactions?.abort()
+      window.removeEventListener('scroll', this.requestScroll)
       window.removeEventListener('scroll', ProgressCircle.update)
       window.removeEventListener('resize', this.handleResize)
       state.activeIds = []

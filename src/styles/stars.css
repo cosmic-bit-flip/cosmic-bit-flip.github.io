@@ -1,4 +1,4 @@
-/* Circular Starfield Background - Dense */
+/* Pixel Starfield Background - Dense */
 @layer components {
   .star-field {
     position: fixed;
@@ -8,7 +8,7 @@
     height: 100%;
     pointer-events: none;
     z-index: -1;
-    opacity: 0.5;
+    opacity: 0.8;
   }
 
   .star-small,
@@ -20,8 +20,8 @@
   }
 
   .star-small {
-    width: 2px;
-    height: 2px;
+    width: 1px;
+    height: 1px;
     background: var(--foreground);
     opacity: 0.7;
     box-shadow:
@@ -69,8 +69,8 @@
   }
 
   .star-medium {
-    width: 3px;
-    height: 3px;
+    width: 2px;
+    height: 2px;
     background: var(--foreground);
     opacity: 0.8;
     box-shadow:
@@ -112,8 +112,9 @@
   }
 
   .star-large {
-    width: 3.6px;
-    height: 3.6px;
+    --accent: color-mix(in srgb, var(--foreground) 90%, #fff0bf);
+    width: 3px;
+    height: 3px;
     background: var(--accent);
     opacity: 0.9;
     box-shadow:
@@ -141,8 +142,8 @@
   }
 
   .star-colored {
-    width: 3px;
-    height: 3px;
+    width: 2px;
+    height: 2px;
     opacity: 0.8;
     border-radius: 50%;
     box-shadow: 

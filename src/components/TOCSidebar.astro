@@ -143,6 +143,10 @@ const parentId = isCurrentSubpost ? getParentId(currentPostId) : currentPostId
 }
 
 <script>
+  import { scrollPosition } from '@/lib/scroll-position'
+  import { measureHeadingRegions, visibleHeadingIds, type HeadingRegion } from '@/lib/heading-regions'
+
+  const desktop = window.matchMedia('(min-width: 1280px)')
   const HEADER_OFFSET = 80
 
   class TOCState {
@@ -151,7 +155,9 @@ const parentId = isCurrentSubpost ? getParentId(currentPostId) : currentPostId
     )
     activeIds: string[] = []
     headings: HTMLElement[] = []
-    regions: { id: string; start: number; end: number }[] = []
+    regions: HeadingRegion[] = []
+    viewportHeight = scrollPosition.height
+    documentHeight = 0
     scrollArea: HTMLElement | null = null
     tocScrollArea: HTMLElement | null = null
 
@@ -180,56 +186,14 @@ const parentId = isCurrentSubpost ? getParentId(currentPostId) : currentPostId
         ),
       )
 
-      if (state.headings.length === 0) {
-        state.regions = []
-        return
-      }
-
-      state.regions = state.headings.map((heading, index) => {
-        const nextHeading = state.headings[index + 1]
-        return {
-          id: heading.id,
-          start: heading.offsetTop,
-          end: nextHeading ? nextHeading.offsetTop : document.body.scrollHeight,
-        }
-      })
+      state.regions = measureHeadingRegions(state.headings)
+      state.viewportHeight = scrollPosition.height
+      state.documentHeight = document.documentElement.scrollHeight
     }
 
     static getVisibleIds(): string[] {
-      if (state.headings.length === 0) return []
-
-      const viewportTop = window.scrollY + HEADER_OFFSET
-      const viewportBottom = window.scrollY + window.innerHeight
-      const visibleIds = new Set<string>()
-
-      const isInViewport = (top: number, bottom: number) =>
-        (top >= viewportTop && top <= viewportBottom) ||
-        (bottom >= viewportTop && bottom <= viewportBottom) ||
-        (top <= viewportTop && bottom >= viewportBottom)
-
-      state.headings.forEach((heading) => {
-        const headingBottom = heading.offsetTop + heading.offsetHeight
-        if (isInViewport(heading.offsetTop, headingBottom)) {
-          visibleIds.add(heading.id)
-        }
-      })
-
-      state.regions.forEach((region) => {
-        if (region.start <= viewportBottom && region.end >= viewportTop) {
-          const heading = document.getElementById(region.id)
-          if (heading) {
-            const headingBottom = heading.offsetTop + heading.offsetHeight
-            if (
-              region.end > headingBottom &&
-              (headingBottom < viewportBottom || viewportTop < region.end)
-            ) {
-              visibleIds.add(region.id)
-            }
-          }
-        }
-      })
-
-      return Array.from(visibleIds)
+      const scroll = scrollPosition.y
+      return visibleHeadingIds(state.regions, scroll + HEADER_OFFSET, scroll + state.viewportHeight)
     }
   }
 
@@ -249,26 +213,17 @@ const parentId = isCurrentSubpost ? getParentId(currentPostId) : currentPostId
 
   class TOCLinks {
     static update(headingIds: string[]) {
+      this.scrollToActive(headingIds)
       state.links.forEach((link) => {
-        link.classList.remove('text-foreground')
-      })
-
-      headingIds.forEach((id) => {
-        if (id) {
-          const activeLink = document.querySelector(
-            `#toc-sidebar-container [data-heading-link="${id}"]`,
-          )
-          if (activeLink) {
-            activeLink.classList.add('text-foreground')
-          }
+        const active = headingIds.includes(link.getAttribute('data-heading-link') ?? '')
+        if (link.classList.contains('text-foreground') !== active) {
+          link.classList.toggle('text-foreground', active)
         }
       })
-
-      this.scrollToActive(headingIds)
     }
 
     static scrollToActive(headingIds: string[]) {
-      if (!state.scrollArea || !headingIds.length) return
+      if (!desktop.matches || !state.scrollArea || !headingIds.length) return
 
       const activeLink = document.querySelector(
         `#toc-sidebar-container [data-heading-link="${headingIds[0]}"]`,
@@ -296,7 +251,21 @@ const parentId = isCurrentSubpost ? getParentId(currentPostId) : currentPostId
   }
 
   class TOCController {
+    static frame = 0
+    static observer: ResizeObserver | undefined
+
+    static requestScroll() {
+      if (!desktop.matches) return
+      if (!TOCController.frame) {
+        TOCController.frame = requestAnimationFrame(() => {
+          TOCController.frame = 0
+          TOCController.handleScroll()
+        })
+      }
+    }
+
     static handleScroll() {
+      if (!desktop.matches) return
       const newActiveIds = HeadingRegions.getVisibleIds()
 
       if (JSON.stringify(newActiveIds) !== JSON.stringify(state.activeIds)) {
@@ -320,8 +289,13 @@ const parentId = isCurrentSubpost ? getParentId(currentPostId) : currentPostId
     }
 
     static init() {
+      this.cleanup()
       state.reset()
       HeadingRegions.build()
+      this.observer = new ResizeObserver(() => TOCController.handleResize())
+      this.observer.observe(document.body)
+      const article = document.querySelector('.prose')
+      if (article) this.observer.observe(article)
 
       if (state.headings.length === 0) {
         TOCLinks.update([])
@@ -332,7 +306,7 @@ const parentId = isCurrentSubpost ? getParentId(currentPostId) : currentPostId
       setTimeout(TOCScrollMask.update, 100)
 
       const options = { passive: true }
-      window.addEventListener('scroll', this.handleScroll, options)
+      window.addEventListener('scroll', this.requestScroll, options)
       window.addEventListener('resize', this.handleResize, options)
       state.scrollArea?.addEventListener(
         'scroll',
@@ -342,7 +316,10 @@ const parentId = isCurrentSubpost ? getParentId(currentPostId) : currentPostId
     }
 
     static cleanup() {
-      window.removeEventListener('scroll', this.handleScroll)
+      cancelAnimationFrame(this.frame)
+      this.frame = 0
+      this.observer?.disconnect()
+      window.removeEventListener('scroll', this.requestScroll)
       window.removeEventListener('resize', this.handleResize)
       state.scrollArea?.removeEventListener('scroll', this.handleTOCScroll)
 

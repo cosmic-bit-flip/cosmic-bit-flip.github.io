@@ -7,7 +7,111 @@
     height: 100%;
     pointer-events: none;
     z-index: -1;
-    opacity: 0.5;
+    opacity: 0.8;
+    overflow: hidden;
+  }
+
+  .star-field > :where(.star-small, .star-medium, .star-large, .star-colored) {
+    will-change: transform, opacity;
+  }
+
+  .meteor-field {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+    --meteor-yellow: #c58b0a;
+    --bit-green: #168943;
+    --bit-purple: #8544b5;
+  }
+
+  .star-field.star-field-pixel {
+    z-index: 0;
+  }
+
+  .pixel-star-layer {
+    position: absolute;
+    top: var(--pixel-y);
+    left: var(--pixel-x);
+    width: calc(var(--star-size) * 9px);
+    height: calc(var(--star-size) * 9px);
+    animation: pixel-star-twinkle var(--star-period) ease-in-out var(--star-delay) infinite;
+    will-change: transform, opacity;
+  }
+
+  .pixel-star-layer > img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    translate: -50% -50%;
+  }
+
+  @keyframes pixel-star-twinkle {
+    0%,
+    100% {
+      opacity: var(--star-natural);
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+
+  [data-theme='dark'] .meteor-field {
+    --meteor-yellow: #ffda65;
+    --bit-green: #63ed8e;
+    --bit-purple: #bd8aff;
+  }
+
+  .shooting-star-track {
+    position: absolute;
+    top: 8vh;
+    left: 82%;
+    --angle: -26deg;
+    transform: rotate(var(--angle));
+  }
+
+  .shooting-star {
+    position: absolute;
+    width: clamp(45px, 10vw, 130px);
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      var(--meteor-yellow),
+      #d9af3933 65%,
+      transparent
+    );
+    transform-origin: left center;
+    opacity: 0;
+  }
+
+  .shooting-star::before {
+    position: absolute;
+    top: -0.5px;
+    left: -1px;
+    width: 2px;
+    height: 2px;
+    content: '';
+    border-radius: 50%;
+    background: #ffe9a0;
+    box-shadow: 0 0 3px var(--meteor-yellow);
+  }
+
+  .shooting-star::after {
+    content: '';
+    position: absolute;
+    inset: 0 0 0 4px;
+    background: inherit;
+    filter: blur(1px);
+    opacity: 0.6;
+  }
+
+  .binary-fizz {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    font-family: var(--font-mono);
   }
 
   .star-small,
@@ -15,12 +119,12 @@
   .star-large,
   .star-colored {
     position: absolute;
-    border-radius: 9999px; /* Ensure circular */
+    border-radius: 50%;
   }
 
   .star-small {
-    width: 2px;
-    height: 2px;
+    width: 1px;
+    height: 1px;
     background: var(--foreground);
     opacity: 0.7;
     box-shadow:
@@ -58,8 +162,8 @@
   }
 
   .star-medium {
-    width: 3px;
-    height: 3px;
+    width: 2px;
+    height: 2px;
     background: var(--foreground);
     opacity: 0.8;
     box-shadow:
@@ -91,8 +195,9 @@
   }
 
   .star-large {
-    width: 3.6px;
-    height: 3.6px;
+    --accent: color-mix(in srgb, var(--foreground) 90%, #fff0bf);
+    width: 3px;
+    height: 3px;
     background: var(--accent);
     opacity: 0.7;
     box-shadow:
@@ -116,9 +221,9 @@
   }
 
   .star-colored {
-    width: 3px;
-    height: 3px;
-    border-radius: 9999px;
+    width: 2px;
+    height: 2px;
+    border-radius: 50%;
     box-shadow:
       12vw 55vh oklch(0.8 0.15 120),
       18vw 85vh oklch(0.75 0.2 240),
@@ -133,15 +238,135 @@
     animation: star-color-twinkle 6s infinite;
   }
 
+  .star-field
+    > :is(.star-small, .star-medium, .star-large, .star-colored)::after {
+    content: '';
+    position: absolute;
+    top: 100vh;
+    width: inherit;
+    height: inherit;
+    border-radius: inherit;
+    background: inherit;
+    box-shadow: inherit;
+  }
+
   @keyframes star-twinkle {
-    0%, 100% { opacity: 0.3; }
-    50% { opacity: 0.8; }
+    0%,
+    100% {
+      opacity: 0.3;
+    }
+    50% {
+      opacity: 0.8;
+    }
   }
 
   @keyframes star-color-twinkle {
-    0%, 100% { opacity: 0.2; }
-    25% { opacity: 0.6; }
-    50% { opacity: 0.8; }
-    75% { opacity: 0.4; }
+    0%,
+    100% {
+      opacity: 0.2;
+    }
+    25% {
+      opacity: 0.6;
+    }
+    50% {
+      opacity: 0.8;
+    }
+    75% {
+      opacity: 0.4;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .meteor-field {
+      display: none;
+    }
+
+    .star-field > div,
+    .pixel-star-layer {
+      animation: none;
+      will-change: auto;
+    }
+  }
+}
+
+@layer components {
+  .cloud-scene {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+    --cloud-color: #e9eef0;
+  }
+
+  [data-theme='dark'] .cloud-scene {
+    --cloud-color: #242d30;
+  }
+
+  .cloud-layer {
+    position: absolute;
+    top: 0;
+    left: -10%;
+    width: 120%;
+    height: calc(100vh + 240px);
+    background: linear-gradient(var(--cloud-color), var(--background) 520px);
+    mask-image: url('/static/cloud-bank.svg'), linear-gradient(#000, #000);
+    mask-size:
+      max(100%, 900px) 240px,
+      100% calc(100% - 239px);
+    mask-position:
+      top center,
+      bottom;
+    mask-repeat: no-repeat;
+    opacity: 0.65;
+    will-change: transform;
+  }
+
+  .cloud-layer:nth-child(2) {
+    left: -28%;
+    width: 155%;
+    opacity: 0.75;
+    mask-size:
+      max(100%, 1100px) 240px,
+      100% calc(100% - 239px);
+  }
+
+  .cloud-layer:nth-child(3) {
+    left: -5%;
+    opacity: 0.9;
+  }
+
+  .footer-haze {
+    position: absolute;
+    inset: 0 0 auto;
+    height: 520px;
+    background: linear-gradient(
+      transparent,
+      color-mix(in srgb, var(--background) 35%, transparent) 20%,
+      color-mix(in srgb, var(--background) 80%, transparent) 45%,
+      var(--background) 62%
+    );
+  }
+
+  .footer-cloud-bank {
+    position: absolute;
+    top: 0;
+    left: -10%;
+    width: 120%;
+    height: 260px;
+    background: linear-gradient(var(--cloud-color), var(--background) 240px);
+    mask-image: url('/static/cloud-bank.svg'), linear-gradient(#000, #000);
+    mask-size:
+      max(100%, 900px) 120px,
+      100% 141px;
+    mask-position: top center, bottom;
+    mask-repeat: no-repeat;
+    opacity: 0.75;
+  }
+
+  .footer-cloud-bank:last-child {
+    left: -28%;
+    width: 155%;
+    opacity: 0.9;
   }
 }
