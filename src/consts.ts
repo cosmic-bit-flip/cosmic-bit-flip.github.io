@@ -20,6 +20,10 @@ export const NAV_LINKS: SocialLink[] = [
     href: '/members',
     label: 'members',
   },
+  {
+    href: 'mailto:cosmic.bit.flips@proton.me',
+    label: 'contact',
+  },
   // {
   //   href: '/about',
   //   label: 'about',
